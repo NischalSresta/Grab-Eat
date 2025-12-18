@@ -1,0 +1,5 @@
+.github/**
+.gitattributes
+.idea/**
+maven-wrapper.properties
+README.md
