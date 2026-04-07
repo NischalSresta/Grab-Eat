@@ -4,12 +4,15 @@ import com.nischal.backend.dto.auth.AuthResponse;
 import com.nischal.backend.dto.auth.LoginRequest;
 import com.nischal.backend.dto.auth.RefreshTokenRequest;
 import com.nischal.backend.dto.auth.RegisterRequest;
+import com.nischal.backend.entity.EmailVerification;
 import com.nischal.backend.entity.User;
 import com.nischal.backend.exception.BadRequestException;
 import com.nischal.backend.exception.UnauthorizedException;
 import com.nischal.backend.mapper.UserMapper;
 import com.nischal.backend.jwt.JwtUtil;
 import com.nischal.backend.service.AuthService;
+import com.nischal.backend.service.EmailService;
+import com.nischal.backend.service.EmailVerificationService;
 import com.nischal.backend.service.UserService;
 import com.nischal.backend.service.userdetails.CustomUserDetails;
 import lombok.RequiredArgsConstructor;
@@ -30,6 +33,8 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final JwtUtil jwtUtil;
     private final AuthenticationManager authenticationManager;
+    private final EmailVerificationService emailVerificationService;
+    private final EmailService emailService;
 
     @Override
     @Transactional
@@ -134,7 +139,45 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public void logout(String token) {
-        // TODO: Implement token blacklisting if needed
-        // For now, client-side logout is sufficient (remove token from storage)
+        // Client-side logout — token removed from storage on the frontend
+    }
+
+    @Override
+    @Transactional
+    public void verifyEmail(String email, String code) {
+        User user = userService.getUserByEmail(email);
+        emailVerificationService.verifyCode(user, code, EmailVerification.VerificationType.EMAIL_VERIFICATION);
+        user.setIsEmailVerified(true);
+        userService.createUser(user);
+    }
+
+    @Override
+    @Transactional
+    public void resendVerificationCode(String email) {
+        User user = userService.getUserByEmail(email);
+        if (Boolean.TRUE.equals(user.getIsEmailVerified())) {
+            throw new BadRequestException("Email is already verified");
+        }
+        EmailVerification verification = emailVerificationService.createVerificationCode(
+                user, EmailVerification.VerificationType.EMAIL_VERIFICATION);
+        emailService.sendVerificationEmail(user.getEmail(), user.getFullName(), verification.getVerificationCode());
+    }
+
+    @Override
+    @Transactional
+    public void sendPasswordResetCode(String email) {
+        User user = userService.getUserByEmail(email);
+        EmailVerification verification = emailVerificationService.createVerificationCode(
+                user, EmailVerification.VerificationType.PASSWORD_RESET);
+        emailService.sendPasswordResetEmail(user.getEmail(), user.getFullName(), verification.getVerificationCode());
+    }
+
+    @Override
+    @Transactional
+    public void resetPassword(String email, String code, String newPassword) {
+        User user = userService.getUserByEmail(email);
+        emailVerificationService.verifyCode(user, code, EmailVerification.VerificationType.PASSWORD_RESET);
+        user.setPassword(passwordEncoder.encode(newPassword));
+        userService.createUser(user);
     }
 }
