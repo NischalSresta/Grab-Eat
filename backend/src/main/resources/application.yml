@@ -6,9 +6,10 @@ spring:
     import:
       - optional:application-database.yml
       - optional:application-jwt.yml
+      - optional:application-mail.yml
 
 server:
-  port: 8080
+  port: 8081
 
 logging:
   level:
