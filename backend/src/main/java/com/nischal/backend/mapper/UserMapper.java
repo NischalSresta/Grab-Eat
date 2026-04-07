@@ -13,6 +13,7 @@ public interface UserMapper {
     @Mapping(target = "password", ignore = true)
     @Mapping(target = "isActive", constant = "true")
     @Mapping(target = "isEmailVerified", constant = "false")
+    @Mapping(target = "birthDate", ignore = true)
     @Mapping(target = "createdAt", ignore = true)
     @Mapping(target = "updatedAt", ignore = true)
     User toEntity(RegisterRequest request);

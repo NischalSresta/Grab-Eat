@@ -3,6 +3,7 @@ package com.nischal.backend.entity;
 import jakarta.persistence.*;
 import lombok.*;
 
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 
 @Entity
@@ -32,6 +33,8 @@ public class User {
 
     @Column(length = 15)
     private String phoneNumber;
+
+    private LocalDate birthDate;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
