@@ -147,8 +147,7 @@ public class AuthServiceImpl implements AuthService {
     public void verifyEmail(String email, String code) {
         User user = userService.getUserByEmail(email);
         emailVerificationService.verifyCode(user, code, EmailVerification.VerificationType.EMAIL_VERIFICATION);
-        user.setIsEmailVerified(true);
-        userService.createUser(user);
+        userService.verifyEmail(user.getId());
     }
 
     @Override
@@ -177,7 +176,6 @@ public class AuthServiceImpl implements AuthService {
     public void resetPassword(String email, String code, String newPassword) {
         User user = userService.getUserByEmail(email);
         emailVerificationService.verifyCode(user, code, EmailVerification.VerificationType.PASSWORD_RESET);
-        user.setPassword(passwordEncoder.encode(newPassword));
-        userService.createUser(user);
+        userService.updatePassword(user.getId(), passwordEncoder.encode(newPassword));
     }
 }

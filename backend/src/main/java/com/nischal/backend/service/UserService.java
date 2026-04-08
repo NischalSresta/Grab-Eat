@@ -32,6 +32,8 @@ public interface UserService {
 
     void verifyEmail(Long id);
 
+    void updatePassword(Long id, String encodedPassword);
+
     // Delete operation
     void deleteUser(Long id);
 
