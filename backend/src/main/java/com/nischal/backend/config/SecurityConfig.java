@@ -19,6 +19,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.http.HttpMethod;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -45,6 +46,23 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
+
+                        // Public QR scan / guest ordering flow (no login required)
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/menu/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/qr/resolve/**").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/recommendations/top-picks").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/orders").permitAll()
+                        .requestMatchers(HttpMethod.GET,  "/api/v1/orders/session/**").permitAll()
+
+                        // Keep staff-only order sub-paths authenticated (must be before the wildcard below)
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/my").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/active").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/table/**").authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/status/**").authenticated()
+
+                        // Individual order GET – guest needs this to poll their order status
+                        .requestMatchers(HttpMethod.GET, "/api/v1/orders/*").permitAll()
+
                         .anyRequest().authenticated()
                 )
                 .sessionManagement(session -> session
@@ -80,7 +98,7 @@ public class SecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:3000", "http://localhost:5173"));
+        configuration.setAllowedOriginPatterns(List.of("http://localhost:[*]"));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("*"));
         configuration.setAllowCredentials(true);
