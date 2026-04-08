@@ -1,6 +1,6 @@
 import Cookies from 'js-cookie';
 import { apiClient } from './api.service';
-import type { LoginRequest, RegisterRequest, AuthResponse } from '../types/auth.types';
+import type { LoginRequest, RegisterRequest, AuthResponse, ForgotPasswordRequest, ResetPasswordRequest } from '../types/auth.types';
 
 const COOKIE_OPTIONS = {
   secure: import.meta.env.PROD, // Only use secure cookies in production
