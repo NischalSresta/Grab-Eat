@@ -24,8 +24,10 @@ const LoginPage = () => {
   useEffect(() => {
     if (isAuthenticated && user) {
       // Redirect admin users to admin dashboard
-      if (user.role === Role.OWNER || user.role === Role.STAFF) {
-        navigate('/admin/dashboard', { replace: true });
+      if (user.role === Role.OWNER) {
+        navigate('/admin', { replace: true });
+      } else if (user.role === Role.STAFF) {
+        navigate('/staff/orders', { replace: true });
       } else {
         navigate('/dashboard', { replace: true });
       }

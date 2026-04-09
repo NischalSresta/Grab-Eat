@@ -17,7 +17,9 @@ const ProtectedAdminRoute = () => {
     return <Navigate to="/login" replace />;
   }
 
-  if (user?.role !== Role.OWNER && user?.role !== Role.STAFF) {
+  // Only OWNER gets the full admin panel; STAFF has their own portal at /staff
+  if (user?.role !== Role.OWNER) {
+    if (user?.role === Role.STAFF) return <Navigate to="/staff/orders" replace />;
     return <Navigate to="/dashboard" replace />;
   }
 

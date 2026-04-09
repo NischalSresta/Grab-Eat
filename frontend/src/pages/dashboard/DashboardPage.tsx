@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LogOut,
@@ -14,6 +14,7 @@ import {
   LayoutGrid,
   Star,
   MapPin,
+  ShoppingBag,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui';
@@ -65,7 +66,7 @@ const DashboardPage = () => {
       description: 'Reserve your perfect spot',
       color: 'bg-red-50 hover:bg-red-100 border-red-200',
       textColor: 'text-red-700',
-      onClick: () => navigate('/book-table'),
+      onClick: () => navigate('/tables/book'),
     },
     {
       icon: <BookOpen size={22} className="text-blue-600" />,
@@ -76,12 +77,20 @@ const DashboardPage = () => {
       onClick: () => navigate('/my-bookings'),
     },
     {
+      icon: <ShoppingBag size={22} className="text-orange-600" />,
+      label: 'My Orders',
+      description: 'Track your food orders live',
+      color: 'bg-orange-50 hover:bg-orange-100 border-orange-200',
+      textColor: 'text-orange-700',
+      onClick: () => navigate('/my-orders'),
+    },
+    {
       icon: <LayoutGrid size={22} className="text-emerald-600" />,
       label: 'Floor Plan',
       description: 'See live table availability',
       color: 'bg-emerald-50 hover:bg-emerald-100 border-emerald-200',
       textColor: 'text-emerald-700',
-      onClick: () => navigate('/floor-plan'),
+      onClick: () => navigate('/tables/floor-plan'),
     },
     {
       icon: <Star size={22} className="text-yellow-600" />,
@@ -154,7 +163,7 @@ const DashboardPage = () => {
             </p>
             <button
               type="button"
-              onClick={() => navigate('/book-table')}
+              onClick={() => navigate('/tables/book')}
               className="inline-flex items-center gap-2 bg-white text-primary-700 font-semibold px-5 py-2.5 rounded-xl hover:bg-primary-50 transition-colors shadow-sm text-sm"
             >
               <Plus size={16} />
@@ -225,7 +234,7 @@ const DashboardPage = () => {
             <div className="bg-white rounded-xl border border-gray-100 p-8 text-center">
               <UtensilsCrossed size={36} className="text-gray-300 mx-auto mb-3" />
               <p className="text-gray-500 text-sm mb-4">No bookings yet. Make your first reservation!</p>
-              <Button size="sm" onClick={() => navigate('/book-table')}>
+              <Button size="sm" onClick={() => navigate('/tables/book')}>
                 <Plus size={14} />
                 Book a Table
               </Button>
