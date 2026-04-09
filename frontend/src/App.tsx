@@ -16,12 +16,19 @@ import DashboardPage from './pages/dashboard/DashboardPage';
 import ProfilePage from './pages/profile/ProfilePage';
 import MenuPage from './pages/menu/MenuPage';
 import OrderPage from './pages/order/OrderPage';
+import MyOrdersPage from './pages/order/MyOrdersPage';
 import BookTablePage from './pages/tables/BookTablePage';
 import TableFloorPlanPage from './pages/tables/TableFloorPlanPage';
 import TableBookingPage from './pages/tables/TableBookingPage';
 import MyBookingsPage from './pages/tables/MyBookingsPage';
 import LoyaltyPage from './pages/loyalty/LoyaltyPage';
 import KitchenDisplayPage from './pages/kitchen/KitchenDisplayPage';
+import PaymentCallbackPage from './pages/payment/PaymentCallbackPage';
+
+// Staff portal
+import StaffLayout from './components/staff/StaffLayout';
+import ProtectedStaffRoute from './components/staff/ProtectedStaffRoute';
+import StaffTablesPage from './pages/staff/StaffTablesPage';
 
 // Admin pages
 import AdminLayout from './components/admin/AdminLayout';
@@ -51,18 +58,32 @@ function App() {
           <Route path="/reset-password" element={<ResetPasswordWithOTPPage />} />
           <Route path="/verify-email" element={<RequestVerificationPage />} />
 
+          {/* Guest QR scan ordering — no login required */}
+          <Route path="/order" element={<OrderPage />} />
+
+          {/* Khalti payment callback — public, Khalti redirects here after payment */}
+          <Route path="/payment/callback" element={<PaymentCallbackPage />} />
+
           {/* Protected customer routes */}
           <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/menu" element={<MenuPage />} />
-            <Route path="/order" element={<OrderPage />} />
             <Route path="/tables" element={<BookTablePage />} />
             <Route path="/tables/floor-plan" element={<TableFloorPlanPage />} />
             <Route path="/tables/book" element={<TableBookingPage />} />
             <Route path="/my-bookings" element={<MyBookingsPage />} />
+            <Route path="/my-orders" element={<MyOrdersPage />} />
             <Route path="/loyalty" element={<LoyaltyPage />} />
-            <Route path="/kitchen" element={<KitchenDisplayPage />} />
+          </Route>
+
+          {/* Staff portal — only STAFF and OWNER */}
+          <Route element={<ProtectedStaffRoute />}>
+            <Route path="/staff" element={<StaffLayout />}>
+              <Route index element={<KitchenDisplayPage />} />
+              <Route path="orders" element={<KitchenDisplayPage />} />
+              <Route path="tables" element={<StaffTablesPage />} />
+            </Route>
           </Route>
 
           {/* Protected admin routes */}
