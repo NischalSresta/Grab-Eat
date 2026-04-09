@@ -46,6 +46,7 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/api/v1/auth/**").permitAll()
                         .requestMatchers("/api/v1/health").permitAll()
+                        .requestMatchers("/ws/**").permitAll()
 
                         // Public QR scan / guest ordering flow (no login required)
                         .requestMatchers(HttpMethod.GET,  "/api/v1/menu/**").permitAll()
@@ -62,6 +63,10 @@ public class SecurityConfig {
 
                         // Individual order GET – guest needs this to poll their order status
                         .requestMatchers(HttpMethod.GET, "/api/v1/orders/*").permitAll()
+
+                        // Khalti — customer self-pay and callback verification (no auth required)
+                        .requestMatchers(HttpMethod.POST, "/api/v1/billing/khalti/verify").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/billing/*/khalti/pay").permitAll()
 
                         .anyRequest().authenticated()
                 )

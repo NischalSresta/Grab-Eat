@@ -1,0 +1,5 @@
+# Khalti Payment Gateway — Sandbox Configuration
+# Replace the secret key below with the one from https://test-admin.khalti.com
+khalti:
+  secret-key: 49761f41f0ee4b4aae6238d9f75da70a
+  base-url: https://dev.khalti.com/api/v2

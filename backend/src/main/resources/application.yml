@@ -7,6 +7,7 @@ spring:
       - optional:application-database.yml
       - optional:application-jwt.yml
       - optional:application-mail.yml
+      - optional:application-khalti.yml
 
 server:
   port: 8081
@@ -15,3 +16,4 @@ logging:
   level:
     org.springframework.security: DEBUG
     com.nischal.backend: DEBUG
+
