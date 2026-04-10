@@ -1,7 +1,7 @@
 spring:
   application:
     name: grabeat-backend
-  
+
   config:
     import:
       - optional:application-database.yml
@@ -9,11 +9,19 @@ spring:
       - optional:application-mail.yml
       - optional:application-khalti.yml
 
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+
 server:
   port: 8081
+
+app:
+  upload-dir: uploads/images
 
 logging:
   level:
     org.springframework.security: DEBUG
     com.nischal.backend: DEBUG
-

@@ -12,4 +12,10 @@ public interface BillingService {
 
     /** Verifies a Khalti payment by pidx; marks order PAID if status is Completed. */
     BillResponse verifyKhaltiPayment(KhaltiVerifyRequest request);
+
+    /** Customer requests to pay with cash — notifies staff via WebSocket. */
+    void requestCashPayment(Long orderId);
+
+    /** Staff confirms cash was received — marks order PAID and awards loyalty points. */
+    BillResponse confirmCashPayment(Long orderId, String performedBy);
 }

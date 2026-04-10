@@ -139,6 +139,55 @@ public class BillingServiceImpl implements BillingService {
         return toBillResponse(saved);
     }
 
+    @Override
+    @Transactional(readOnly = true)
+    public void requestCashPayment(Long orderId) {
+        Order order = findOrderOrThrow(orderId);
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestException("Order #" + orderId + " is already paid.");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Cannot request payment for a cancelled order.");
+        }
+
+        // Broadcast only — no DB write needed; staff UI updates via WebSocket
+        orderWebSocketService.broadcastCashRequest(order);
+        log.info("Customer requested cash payment for order #{}", orderId);
+    }
+
+    @Override
+    @Transactional
+    public BillResponse confirmCashPayment(Long orderId, String performedBy) {
+        Order order = findOrderOrThrow(orderId);
+
+        if (order.getPaymentStatus() == PaymentStatus.PAID) {
+            throw new BadRequestException("Order #" + orderId + " is already paid.");
+        }
+        if (order.getStatus() == OrderStatus.CANCELLED) {
+            throw new BadRequestException("Cannot pay for a cancelled order.");
+        }
+
+        order.setPaymentMethod(PaymentMethod.CASH);
+        order.setPaymentStatus(PaymentStatus.PAID);
+        order.setPaidAt(LocalDateTime.now());
+        order.setStatus(OrderStatus.SERVED);
+
+        Order saved = orderRepository.save(order);
+        orderWebSocketService.broadcastOrderUpdate(saved);
+        log.info("Order #{} cash payment confirmed by {}", orderId, performedBy);
+
+        if (saved.getUser() != null) {
+            try {
+                loyaltyService.earnPointsForOrder(saved);
+            } catch (Exception e) {
+                log.warn("Loyalty point update failed for order #{}: {}", orderId, e.getMessage());
+            }
+        }
+
+        return toBillResponse(saved);
+    }
+
     // Helpers
 
     private Order findOrderOrThrow(Long id) {

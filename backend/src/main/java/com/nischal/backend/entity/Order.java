@@ -78,6 +78,7 @@ public class Order {
     @Column(length = 100)
     private String khaltiPidx;
 
+
     @Column(length = 500)
     private String notes;
 

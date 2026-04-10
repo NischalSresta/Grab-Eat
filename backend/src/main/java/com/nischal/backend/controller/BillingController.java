@@ -74,4 +74,26 @@ public class BillingController {
             @Valid @RequestBody KhaltiVerifyRequest request) {
         return ResponseEntity.ok(billingService.verifyKhaltiPayment(request));
     }
+
+    /**
+     * Customer requests to pay with cash.
+     * Notifies staff via WebSocket — does NOT mark order as paid.
+     */
+    @PostMapping("/{orderId}/cash/request")
+    public ResponseEntity<Void> requestCashPayment(@PathVariable Long orderId) {
+        billingService.requestCashPayment(orderId);
+        return ResponseEntity.ok().build();
+    }
+
+    /**
+     * Staff confirms cash was physically received.
+     * Marks order PAID, awards loyalty points, broadcasts WebSocket update.
+     */
+    @PostMapping("/{orderId}/cash/confirm")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<BillResponse> confirmCashPayment(
+            @PathVariable Long orderId,
+            @AuthenticationPrincipal UserDetails userDetails) {
+        return ResponseEntity.ok(billingService.confirmCashPayment(orderId, userDetails.getUsername()));
+    }
 }

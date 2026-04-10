@@ -11,6 +11,7 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.*;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.HttpServerErrorException;
 import org.springframework.web.client.RestTemplate;
 
 import java.math.BigDecimal;
@@ -40,15 +41,32 @@ public class KhaltiPaymentServiceImpl implements KhaltiPaymentService {
         Order order = orderRepository.findById(orderId)
                 .orElseThrow(() -> new BadRequestException("Order not found: " + orderId));
 
+        // If a pidx already exists for this order, reuse it to avoid Khalti's
+        // "similar request already being processed" error on repeated clicks.
+        if (order.getKhaltiPidx() != null && !order.getKhaltiPidx().isBlank()) {
+            String existingPidx = order.getKhaltiPidx();
+            String paymentUrl = (baseUrl.contains("dev.khalti.com"))
+                    ? "https://test-pay.khalti.com/?pidx=" + existingPidx
+                    : "https://pay.khalti.com/?pidx=" + existingPidx;
+            log.info("Reusing existing Khalti pidx {} for order #{}", existingPidx, orderId);
+            return KhaltiInitiateResponse.builder()
+                    .pidx(existingPidx)
+                    .paymentUrl(paymentUrl)
+                    .build();
+        }
+
         // Khalti requires amount in paisa (1 NPR = 100 paisa), minimum 1000 paisa (Rs. 10)
         BigDecimal totalNPR = order.getTotalAmount() != null ? order.getTotalAmount() : BigDecimal.ZERO;
         long amountPaisa = totalNPR.multiply(BigDecimal.valueOf(100)).longValue();
+
+        // Use a unique purchase_order_id per attempt so Khalti doesn't treat retries as duplicates
+        String purchaseOrderId = "ORDER-" + orderId + "-" + System.currentTimeMillis();
 
         Map<String, Object> body = new HashMap<>();
         body.put("return_url", returnUrl);
         body.put("website_url", "http://localhost:5173");
         body.put("amount", amountPaisa);
-        body.put("purchase_order_id", "ORDER-" + orderId);
+        body.put("purchase_order_id", purchaseOrderId);
         body.put("purchase_order_name", "GrabEats Order #" + orderId + " — Table " + order.getTable().getTableNumber());
 
         Map<String, String> customerInfo = new HashMap<>();
@@ -90,12 +108,15 @@ public class KhaltiPaymentServiceImpl implements KhaltiPaymentService {
 
         } catch (HttpClientErrorException e) {
             log.error("Khalti initiate failed for order #{}: {} — {}", orderId, e.getStatusCode(), e.getResponseBodyAsString());
-            throw new BadRequestException("Khalti error: " + e.getResponseBodyAsString());
+            throw new BadRequestException("Khalti payment error: " + e.getStatusCode() + ". Please try again.");
+        } catch (HttpServerErrorException e) {
+            log.error("Khalti sandbox unavailable for order #{}: {}", orderId, e.getStatusCode());
+            throw new BadRequestException("Khalti sandbox is temporarily unavailable (503). Please try again in a few minutes or pay with cash.");
         } catch (BadRequestException e) {
             throw e;
         } catch (Exception e) {
             log.error("Khalti initiate unexpected error for order #{}: {}", orderId, e.getMessage());
-            throw new BadRequestException("Failed to initiate Khalti payment: " + e.getMessage());
+            throw new BadRequestException("Could not connect to Khalti. Please try again or pay with cash.");
         }
     }
 
