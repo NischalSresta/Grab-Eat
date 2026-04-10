@@ -4,7 +4,7 @@ import { billingService } from '../../services/billing.service';
 import { useOrderSocket } from '../../hooks/useOrderSocket';
 import type { Order } from '../../types/menu.types';
 import type { BillResponse, PaymentMethod } from '../../types/billing.types';
-import { CreditCard, Banknote, Smartphone, Receipt, Split, ExternalLink } from 'lucide-react';
+import { CreditCard, Banknote, Smartphone, Receipt, Split, ExternalLink, CheckCircle2, Bell } from 'lucide-react';
 
 const PAYMENT_METHODS: { value: PaymentMethod; label: string; icon: any }[] = [
   { value: 'CASH', label: 'Cash', icon: Banknote },
@@ -41,10 +41,19 @@ export default function BillingPage() {
   useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   useOrderSocket(useCallback((update) => {
-    fetchOrders();
-    if (selectedOrder?.id === update.orderId && update.paymentStatus === 'PAID') {
-      setSelectedOrder(null);
-      setBill(null);
+    if (update.type === 'CASH_REQUEST') {
+      // Flag this order in the list immediately without a full reload
+      setOrders(prev => prev.map(o =>
+        o.id === update.orderId ? { ...o, cashRequested: true } : o
+      ));
+      setSuccessMsg(`⚡ Table ${update.tableNumber} — Order #${update.orderId} wants to pay with CASH!`);
+      setTimeout(() => setSuccessMsg(''), 10000);
+    } else {
+      fetchOrders();
+      if (selectedOrder?.id === update.orderId && update.paymentStatus === 'PAID') {
+        setSelectedOrder(null);
+        setBill(null);
+      }
     }
   }, [fetchOrders, selectedOrder]));
 
@@ -124,7 +133,9 @@ export default function BillingPage() {
               key={order.id}
               onClick={() => selectOrder(order)}
               className={`w-full text-left p-4 rounded-xl border transition ${
-                selectedOrder?.id === order.id
+                order.cashRequested
+                  ? 'border-green-400 bg-green-50 ring-2 ring-green-300'
+                  : selectedOrder?.id === order.id
                   ? 'border-orange-400 bg-orange-50'
                   : 'border-gray-200 bg-white hover:border-orange-300'
               }`}
@@ -134,6 +145,12 @@ export default function BillingPage() {
                 <span className="text-orange-600 font-bold text-sm">NPR {order.totalAmount?.toFixed(2)}</span>
               </div>
               <p className="text-xs text-gray-500 mt-1">Order #{order.id} · {order.items?.length} items · {order.status}</p>
+              {order.cashRequested && (
+                <div className="flex items-center gap-1.5 mt-2 text-xs font-semibold text-green-700 bg-green-100 rounded-lg px-2 py-1">
+                  <Bell size={11} />
+                  Customer wants to pay with cash
+                </div>
+              )}
             </button>
           ))
         )}
@@ -223,6 +240,38 @@ export default function BillingPage() {
                 })}
               </div>
             </div>
+
+            {/* Cash request alert — shown when customer requested cash */}
+            {selectedOrder.cashRequested && (
+              <div className="mb-4 p-4 bg-green-50 border-2 border-green-400 rounded-xl">
+                <div className="flex items-center gap-2 mb-3">
+                  <Bell size={16} className="text-green-600" />
+                  <p className="font-bold text-green-800 text-sm">Customer wants to pay with cash</p>
+                </div>
+                <button
+                  onClick={async () => {
+                    setProcessing(true);
+                    setError('');
+                    try {
+                      await billingService.confirmCashPayment(selectedOrder.id);
+                      setSuccessMsg(`Order #${selectedOrder.id} — Cash payment confirmed ✓`);
+                      setOrders(prev => prev.filter(o => o.id !== selectedOrder.id));
+                      setSelectedOrder(null);
+                      setBill(null);
+                      setTimeout(() => setSuccessMsg(''), 5000);
+                    } catch (e: any) {
+                      setError(e?.response?.data?.message || 'Failed to confirm cash payment');
+                    } finally {
+                      setProcessing(false);
+                    }
+                  }}
+                  disabled={processing}
+                  className="w-full py-3 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-base"
+                >
+                  {processing ? 'Confirming...' : <><CheckCircle2 size={18} /> Confirm Cash Received — NPR {bill.totalAmount?.toFixed(2)}</>}
+                </button>
+              </div>
+            )}
 
             <button
               onClick={handlePay}

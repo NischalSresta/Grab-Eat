@@ -14,6 +14,7 @@ import {
   XCircle,
   Bell,
   ExternalLink,
+  Banknote,
 } from 'lucide-react';
 import { orderService } from '../../services/order.service';
 import { billingService } from '../../services/billing.service';
@@ -85,6 +86,9 @@ function OrderCard({ order, defaultOpen }: { order: Order; defaultOpen?: boolean
   const [open, setOpen] = useState(defaultOpen ?? (order.status !== 'SERVED' && order.status !== 'CANCELLED'));
   const [khaltiLoading, setKhaltiLoading] = useState(false);
   const [khaltiError, setKhaltiError] = useState('');
+  const [cashLoading, setCashLoading] = useState(false);
+  const [cashError, setCashError] = useState('');
+  const [cashRequested, setCashRequested] = useState(order.cashRequested ?? false);
   const meta = STATUS_META[order.status];
   const payMeta = PAYMENT_META[order.paymentStatus];
   const isActive = !['SERVED', 'CANCELLED'].includes(order.status);
@@ -97,9 +101,31 @@ function OrderCard({ order, defaultOpen }: { order: Order; defaultOpen?: boolean
       const res = await billingService.customerInitiateKhaltiPayment(order.id);
       window.location.href = res.paymentUrl;
     } catch (e: any) {
-      setKhaltiError(e?.response?.data?.message || 'Failed to start Khalti payment.');
+      const raw = e?.response?.data?.message || e?.message || '';
+      // Strip any HTML tags from error messages (e.g. Khalti 503 HTML responses)
+      const clean = raw.replace(/<[^>]*>/g, '').replace(/\s+/g, ' ').trim();
+      const status = e?.response?.status;
+      if (status === 503 || clean.toLowerCase().includes('503') || clean.toLowerCase().includes('unavailable')) {
+        setKhaltiError('Khalti sandbox is currently down. Please try again later or pay with cash.');
+      } else {
+        setKhaltiError(clean || 'Could not connect to Khalti. Please try again or pay with cash.');
+      }
     } finally {
       setKhaltiLoading(false);
+    }
+  };
+
+  const handleCashPay = async () => {
+    setCashLoading(true);
+    setCashError('');
+    setKhaltiError(''); // clear any previous khalti error
+    try {
+      await billingService.requestCashPayment(order.id);
+      setCashRequested(true);
+    } catch (e: any) {
+      setCashError(e?.response?.data?.message || 'Failed to request cash payment. Please ask a staff member.');
+    } finally {
+      setCashLoading(false);
     }
   };
 
@@ -191,19 +217,36 @@ function OrderCard({ order, defaultOpen }: { order: Order; defaultOpen?: boolean
               <span className={`text-xs font-semibold ${payMeta.color}`}>{payMeta.label}</span>
             </div>
 
-            {/* Khalti pay button — shown when order is served and unpaid */}
+            {/* Payment buttons — shown when order is served and unpaid */}
             {canPayWithKhalti && (
-              <div className="pt-1">
+              <div className="pt-1 space-y-2">
                 {khaltiError && (
-                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2 mb-2">{khaltiError}</p>
+                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{khaltiError}</p>
                 )}
                 <button
                   onClick={handleKhaltiPay}
-                  disabled={khaltiLoading}
+                  disabled={khaltiLoading || cashLoading}
                   className="w-full py-2.5 bg-purple-600 hover:bg-purple-700 disabled:opacity-60 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm"
                 >
                   {khaltiLoading ? 'Opening Khalti...' : <><ExternalLink size={14} /> Pay with Khalti — NPR {order.totalAmount.toFixed(0)}</>}
                 </button>
+                {cashError && (
+                  <p className="text-xs text-red-600 bg-red-50 rounded-lg px-3 py-2">{cashError}</p>
+                )}
+                {cashRequested ? (
+                  <div className="w-full py-3 bg-green-50 border border-green-300 rounded-xl flex items-center justify-center gap-2 text-sm text-green-700 font-semibold">
+                    <Banknote size={14} />
+                    Cash requested — waiting for staff to confirm
+                  </div>
+                ) : (
+                  <button
+                    onClick={handleCashPay}
+                    disabled={cashLoading || khaltiLoading}
+                    className="w-full py-2.5 bg-green-600 hover:bg-green-700 disabled:opacity-60 text-white font-bold rounded-xl transition flex items-center justify-center gap-2 text-sm"
+                  >
+                    {cashLoading ? 'Requesting...' : <><Banknote size={14} /> Pay with Cash — NPR {order.totalAmount.toFixed(0)}</>}
+                  </button>
+                )}
               </div>
             )}
 

@@ -34,4 +34,14 @@ export const billingService = {
   async verifyKhaltiPayment(data: KhaltiVerifyRequest): Promise<BillResponse> {
     return apiClient.post<BillResponse>('/billing/khalti/verify', data);
   },
+
+  /** Public — customer signals they want to pay with cash; staff must confirm */
+  async requestCashPayment(orderId: number): Promise<void> {
+    return apiClient.post<void>(`/billing/${orderId}/cash/request`);
+  },
+
+  /** Staff only — confirms cash was received, marks PAID, awards loyalty points */
+  async confirmCashPayment(orderId: number): Promise<BillResponse> {
+    return apiClient.post<BillResponse>(`/billing/${orderId}/cash/confirm`);
+  },
 };

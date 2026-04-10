@@ -1,8 +1,9 @@
 import { Navigate, Outlet } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { Role } from '../types/auth.types';
 
 const ProtectedRoute = () => {
-  const { isAuthenticated, isLoading } = useAuth();
+  const { isAuthenticated, isLoading, user } = useAuth();
 
   if (isLoading) {
     return (
@@ -12,7 +13,13 @@ const ProtectedRoute = () => {
     );
   }
 
-  return isAuthenticated ? <Outlet /> : <Navigate to="/login" replace />;
+  if (!isAuthenticated) return <Navigate to="/login" replace />;
+
+  // Staff and Owner must use their own portals — not customer routes
+  if (user?.role === Role.STAFF) return <Navigate to="/staff" replace />;
+  if (user?.role === Role.OWNER) return <Navigate to="/admin" replace />;
+
+  return <Outlet />;
 };
 
 export default ProtectedRoute;

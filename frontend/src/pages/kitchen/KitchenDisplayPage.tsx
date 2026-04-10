@@ -6,7 +6,7 @@ import type { PaymentMethod } from '../../types/billing.types';
 import { useOrderSocket } from '../../hooks/useOrderSocket';
 import {
   CheckCircle, Clock, ChefHat, Bell, Utensils,
-  Banknote, CreditCard, X, RefreshCw, ExternalLink,
+  Banknote, CreditCard, X, RefreshCw, ExternalLink, Receipt,
 } from 'lucide-react';
 
 // ─── Status config ───────────────────────────────────────────────────────────
@@ -388,7 +388,6 @@ export default function KitchenDisplayPage() {
   };
 
   const handleCancel = async (orderId: number) => {
-    if (!confirm('Cancel this order?')) return;
     setUpdatingId(orderId);
     try {
       await orderService.cancelOrder(orderId);
@@ -415,145 +414,174 @@ export default function KitchenDisplayPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 flex items-center justify-center">
-        <div className="w-12 h-12 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
+      <div className="p-6 lg:p-8 flex items-center justify-center h-64">
+        <div className="w-10 h-10 border-4 border-orange-500 border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
 
-  return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <div className="sticky top-0 z-20 bg-gray-900 border-b border-white/10 px-4 py-3">
-        <div className="flex items-center justify-between mb-3">
-          <div>
-            <h1 className="text-xl font-bold">Staff Orders</h1>
-            <p className="text-gray-400 text-xs">
-              {kitchenOrders.length} active · {paymentOrders.length} awaiting payment
-            </p>
-          </div>
-          <button
-            onClick={fetchAll}
-            className="bg-gray-700 hover:bg-gray-600 p-2 rounded-xl transition"
-            title="Refresh"
-          >
-            <RefreshCw size={16} />
-          </button>
-        </div>
+  const statCards = [
+    { label: 'Active Orders',  value: kitchenOrders.length,         accent: '#f97316', bg: 'rgba(249,115,22,0.1)',  Icon: Utensils   },
+    { label: 'Pending',        value: counts.PENDING    ?? 0,        accent: '#f59e0b', bg: 'rgba(245,158,11,0.1)',  Icon: Clock      },
+    { label: 'Confirmed',      value: counts.CONFIRMED  ?? 0,        accent: '#3b82f6', bg: 'rgba(59,130,246,0.1)',  Icon: CheckCircle},
+    { label: 'Preparing',      value: counts.PREPARING  ?? 0,        accent: '#f97316', bg: 'rgba(249,115,22,0.08)', Icon: ChefHat    },
+    { label: 'Ready',          value: counts.READY      ?? 0,        accent: '#10b981', bg: 'rgba(16,185,129,0.1)',  Icon: Bell       },
+    { label: 'Await Payment',  value: paymentOrders.length,          accent: '#8b5cf6', bg: 'rgba(139,92,246,0.1)',  Icon: Receipt    },
+  ];
 
-        {/* View tabs */}
-        <div className="flex gap-2">
-          <button
-            onClick={() => setView('kitchen')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition ${
-              view === 'kitchen' ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Kitchen
-            {kitchenOrders.length > 0 && (
-              <span className="ml-2 bg-white/20 text-white text-xs px-1.5 py-0.5 rounded-full">
-                {kitchenOrders.length}
-              </span>
-            )}
-          </button>
-          <button
-            onClick={() => setView('payment')}
-            className={`flex-1 py-2 rounded-xl text-sm font-semibold transition relative ${
-              view === 'payment' ? 'bg-emerald-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Awaiting Payment
-            {paymentOrders.length > 0 && (
-              <span className={`ml-2 text-xs px-1.5 py-0.5 rounded-full ${
-                view === 'payment' ? 'bg-white/20 text-white' : 'bg-orange-500 text-white animate-pulse'
-              }`}>
-                {paymentOrders.length}
-              </span>
-            )}
-          </button>
+  return (
+    <div className="p-6 lg:p-8">
+
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between mb-8 animate-fade-up">
+        <div>
+          <h1 className="text-3xl font-black tracking-tight">
+            <span className="text-gradient">Live Orders</span>
+          </h1>
+          <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>
+            Real-time kitchen display and payment collection
+          </p>
         </div>
+        <button
+          onClick={fetchAll}
+          className="p-2.5 rounded-xl border border-gray-200 hover:bg-gray-50 transition"
+          title="Refresh"
+        >
+          <RefreshCw size={16} className="text-gray-500" />
+        </button>
+      </div>
+
+      {/* ── Stat cards ─────────────────────────────────────────────────────── */}
+      <div className="grid grid-cols-2 lg:grid-cols-6 gap-4 mb-8 stagger animate-fade-up" style={{ animationDelay: '50ms' }}>
+        {statCards.map((s, i) => {
+          const Icon = s.Icon;
+          return (
+            <div key={s.label} className="card stat-card animate-fade-up p-5 cursor-default" style={{ animationDelay: `${i * 40}ms` }}>
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-widest mb-2" style={{ color: 'var(--text-3)' }}>{s.label}</p>
+                  <p className="text-2xl font-black tracking-tight" style={{ color: 'var(--text-1)' }}>{s.value}</p>
+                </div>
+                <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0" style={{ background: s.bg }}>
+                  <Icon size={17} style={{ color: s.accent }} />
+                </div>
+              </div>
+            </div>
+          );
+        })}
       </div>
 
       {/* ── Success toast ──────────────────────────────────────────────────── */}
       {paySuccessMsg && (
-        <div className="mx-4 mt-4 bg-emerald-600 text-white rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2">
+        <div className="mb-5 bg-emerald-50 border border-emerald-200 text-emerald-700 rounded-xl px-4 py-3 text-sm font-semibold flex items-center gap-2">
           <CheckCircle size={16} /> {paySuccessMsg}
         </div>
       )}
 
-      <div className="p-4">
-
-        {/* ── KITCHEN VIEW ─────────────────────────────────────────────────── */}
-        {view === 'kitchen' && (
-          <>
-            {/* Filter tabs */}
-            <div className="flex gap-2 mb-4 overflow-x-auto pb-1">
-              {(['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY'] as const).map(s => {
-                const Icon = STATUS_ICONS[s];
-                return (
-                  <button
-                    key={s}
-                    onClick={() => setFilter(s)}
-                    className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-xl text-xs font-semibold transition flex-shrink-0 ${
-                      filter === s ? 'bg-orange-500 text-white' : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-                    }`}
-                  >
-                    {Icon && <Icon size={12} />}
-                    {s === 'ALL' ? `All (${kitchenOrders.length})` : `${s} (${counts[s as OrderStatus] || 0})`}
-                  </button>
-                );
-              })}
-            </div>
-
-            {filtered.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
-                <div className="text-5xl mb-4">🍳</div>
-                <p className="text-xl font-semibold">No active orders</p>
-                <p className="text-sm mt-1 text-gray-600">New orders appear here automatically</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {filtered.map(order => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    updating={updatingId === order.id}
-                    onAdvance={handleAdvance}
-                    onCancel={handleCancel}
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
-
-        {/* ── PAYMENT VIEW ─────────────────────────────────────────────────── */}
-        {view === 'payment' && (
-          <>
-            {paymentOrders.length === 0 ? (
-              <div className="text-center py-20 text-gray-500">
-                <div className="text-5xl mb-4">💳</div>
-                <p className="text-xl font-semibold">No pending payments</p>
-                <p className="text-sm mt-1 text-gray-600">Served orders awaiting payment appear here</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-                {paymentOrders.map(order => (
-                  <OrderCard
-                    key={order.id}
-                    order={order}
-                    updating={updatingId === order.id}
-                    onAdvance={handleAdvance}
-                    onCancel={handleCancel}
-                    onCollectPayment={setPaymentOrder}
-                    isPaymentCard
-                  />
-                ))}
-              </div>
-            )}
-          </>
-        )}
+      {/* ── View tabs ──────────────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 bg-gray-100 rounded-xl p-1 w-fit mb-6 animate-fade-up" style={{ animationDelay: '100ms' }}>
+        <button
+          onClick={() => setView('kitchen')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            view === 'kitchen' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <ChefHat size={14} />
+          Kitchen
+          {kitchenOrders.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${view === 'kitchen' ? 'bg-orange-500 text-white' : 'bg-gray-300 text-gray-600'}`}>
+              {kitchenOrders.length}
+            </span>
+          )}
+        </button>
+        <button
+          onClick={() => setView('payment')}
+          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold transition-all ${
+            view === 'payment' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          <Receipt size={14} />
+          Awaiting Payment
+          {paymentOrders.length > 0 && (
+            <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${view === 'payment' ? 'bg-emerald-500 text-white' : 'bg-orange-500 text-white animate-pulse'}`}>
+              {paymentOrders.length}
+            </span>
+          )}
+        </button>
       </div>
+
+      {/* ── KITCHEN VIEW ─────────────────────────────────────────────────────── */}
+      {view === 'kitchen' && (
+        <>
+          {/* Filter pills */}
+          <div className="flex gap-2 mb-5 overflow-x-auto pb-1">
+            {(['ALL', 'PENDING', 'CONFIRMED', 'PREPARING', 'READY'] as const).map(s => {
+              const Icon = STATUS_ICONS[s];
+              return (
+                <button
+                  key={s}
+                  onClick={() => setFilter(s)}
+                  className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-2 rounded-xl text-xs font-semibold transition flex-shrink-0 ${
+                    filter === s
+                      ? 'bg-orange-500 text-white shadow-sm'
+                      : 'bg-white border border-gray-200 text-gray-600 hover:border-orange-300 hover:text-orange-600'
+                  }`}
+                >
+                  {Icon && <Icon size={12} />}
+                  {s === 'ALL' ? `All (${kitchenOrders.length})` : `${s} (${counts[s as OrderStatus] ?? 0})`}
+                </button>
+              );
+            })}
+          </div>
+
+          {filtered.length === 0 ? (
+            <div className="card p-14 text-center animate-fade-up">
+              <div className="text-5xl mb-4">🍳</div>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-1)' }}>No active orders</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>New orders appear here automatically</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {filtered.map(order => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  updating={updatingId === order.id}
+                  onAdvance={handleAdvance}
+                  onCancel={handleCancel}
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
+
+      {/* ── PAYMENT VIEW ─────────────────────────────────────────────────────── */}
+      {view === 'payment' && (
+        <>
+          {paymentOrders.length === 0 ? (
+            <div className="card p-14 text-center animate-fade-up">
+              <div className="text-5xl mb-4">💳</div>
+              <p className="text-lg font-bold" style={{ color: 'var(--text-1)' }}>No pending payments</p>
+              <p className="text-sm mt-1" style={{ color: 'var(--text-3)' }}>Served orders awaiting payment appear here</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {paymentOrders.map(order => (
+                <OrderCard
+                  key={order.id}
+                  order={order}
+                  updating={updatingId === order.id}
+                  onAdvance={handleAdvance}
+                  onCancel={handleCancel}
+                  onCollectPayment={setPaymentOrder}
+                  isPaymentCard
+                />
+              ))}
+            </div>
+          )}
+        </>
+      )}
 
       {/* ── Payment Modal ─────────────────────────────────────────────────────── */}
       {paymentOrder && (
