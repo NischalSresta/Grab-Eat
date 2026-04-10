@@ -15,11 +15,15 @@ import {
   Star,
   MapPin,
   ShoppingBag,
+  TrendingUp,
+  Coffee,
 } from 'lucide-react';
 import { useAuth } from '../../hooks/useAuth';
 import { Button } from '../../components/ui';
 import { tableService } from '../../services/table.service';
+import { recommendationService } from '../../services/recommendation.service';
 import type { BookingItem } from '../../types/table.types';
+import type { TopPick } from '../../types/recommendation.types';
 import {
   TABLE_FLOOR_LABELS,
   BOOKING_STATUS_LABELS,
@@ -33,6 +37,7 @@ const DashboardPage = () => {
   const [bookingsLoading, setBookingsLoading] = useState(true);
   const [pendingCount, setPendingCount] = useState(0);
   const [confirmedCount, setConfirmedCount] = useState(0);
+  const [topPicks, setTopPicks] = useState<TopPick[]>([]);
 
   const handleLogout = async () => {
     await logout();
@@ -54,6 +59,7 @@ const DashboardPage = () => {
 
   useEffect(() => {
     loadRecentBookings();
+    recommendationService.getTopPicks().then(setTopPicks).catch(() => {});
   }, [loadRecentBookings]);
 
   const formatDate = (d: string) =>
@@ -171,6 +177,67 @@ const DashboardPage = () => {
             </button>
           </div>
         </div>
+
+        {/* Weekly Top Picks */}
+        {topPicks.length > 0 && (
+          <div className="mb-8">
+            <div className="flex items-center gap-2 mb-3">
+              <TrendingUp size={18} className="text-orange-500" />
+              <h3 className="text-lg font-bold text-gray-900">This Week's Top Picks</h3>
+              <span className="text-xs bg-orange-100 text-orange-600 font-semibold px-2 py-0.5 rounded-full">
+                Updated Weekly
+              </span>
+            </div>
+            <div className={`grid gap-3 ${topPicks.length === 1 ? 'grid-cols-1' : 'grid-cols-2'}`}>
+              {topPicks.map(pick => {
+                const isBev = pick.categoryType === 'BEVERAGE';
+                return (
+                  <button
+                    key={pick.id}
+                    type="button"
+                    onClick={() => navigate('/menu')}
+                    className={`relative overflow-hidden rounded-2xl p-5 text-left transition-transform active:scale-95 hover:scale-[1.02] ${
+                      isBev
+                        ? 'bg-gradient-to-br from-blue-500 to-cyan-500'
+                        : 'bg-gradient-to-br from-orange-500 to-red-500'
+                    }`}
+                  >
+                    {/* decorative circles */}
+                    <div className="absolute -right-8 -top-8 w-28 h-28 rounded-full bg-white/10" />
+                    <div className="absolute -right-2 -bottom-6 w-16 h-16 rounded-full bg-white/10" />
+
+                    <div className="relative">
+                      <div className="flex items-center gap-1.5 mb-2">
+                        {isBev
+                          ? <Coffee size={13} className="text-white/80" />
+                          : <UtensilsCrossed size={13} className="text-white/80" />
+                        }
+                        <span className="text-white/80 text-xs font-semibold uppercase tracking-widest">
+                          {isBev ? 'Top Drink' : 'Top Dish'}
+                        </span>
+                      </div>
+
+                      <p className="text-white font-extrabold text-xl leading-tight line-clamp-2 mb-1">
+                        {pick.menuItemName}
+                      </p>
+
+                      {pick.categoryName && (
+                        <p className="text-white/70 text-xs mb-3">{pick.categoryName}</p>
+                      )}
+
+                      <div className="flex items-end justify-between">
+                        <span className="text-white font-bold text-lg">NPR {pick.price}</span>
+                        <span className="bg-white/20 text-white text-xs font-semibold px-2.5 py-1 rounded-full">
+                          {pick.totalOrdered} orders this week
+                        </span>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Stats Row */}
         <div className="grid grid-cols-3 gap-4 mb-8">

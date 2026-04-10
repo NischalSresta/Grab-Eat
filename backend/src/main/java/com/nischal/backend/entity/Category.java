@@ -33,6 +33,11 @@ public class Category {
     @Builder.Default
     private Integer sortOrder = 0;
 
+    @Enumerated(EnumType.STRING)
+    @Column(length = 20)
+    @Builder.Default
+    private CategoryType type = CategoryType.FOOD;
+
     @Column(nullable = false)
     @Builder.Default
     private Boolean isActive = true;
