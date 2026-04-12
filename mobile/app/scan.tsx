@@ -3,6 +3,7 @@ import { CameraView } from 'expo-camera';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
 import { useCameraPermission } from '../src/hooks/useCameraPermission';
+import { parseQrCode } from '../src/utils/parseQrCode';
 
 export default function ScanScreen() {
   const router = useRouter();
@@ -58,7 +59,15 @@ export default function ScanScreen() {
   );
 
   function handleScan(data: string) {
-    router.push({ pathname: '/menu', params: { qr: data } });
+    const payload = parseQrCode(data);
+    if (!payload) {
+      setScanned(false);
+      return;
+    }
+    router.push({
+      pathname: '/menu',
+      params: { restaurantId: payload.restaurantId, tableId: payload.tableId },
+    });
   }
 }
 
