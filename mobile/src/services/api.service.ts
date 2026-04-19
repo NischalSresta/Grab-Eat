@@ -5,6 +5,11 @@ import { ApiError, ApiResponse } from '@/src/types';
 
 class ApiService {
   private api: AxiosInstance;
+  private onUnauthorizedCallback: (() => void) | null = null;
+
+  setOnUnauthorizedCallback(cb: () => void) {
+    this.onUnauthorizedCallback = cb;
+  }
 
   constructor() {
     this.api = axios.create({
@@ -65,6 +70,7 @@ class ApiService {
           } catch (refreshError) {
             // Refresh failed (token revoked, expired, or invalid), logout user
             await this.clearTokens();
+            this.onUnauthorizedCallback?.();
             return Promise.reject(this.handleError(refreshError as AxiosError));
           }
         }

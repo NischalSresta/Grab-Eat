@@ -22,7 +22,7 @@ class MenuService {
   }
 
   async searchMenu(keyword: string): Promise<MenuItem[]> {
-    const response = await apiService.get<MenuItem[]>(`/menu/search?q=${encodeURIComponent(keyword)}`);
+    const response = await apiService.get<MenuItem[]>(`/menu/search?keyword=${encodeURIComponent(keyword)}`);
     return this.unwrap<MenuItem[]>(response);
   }
 

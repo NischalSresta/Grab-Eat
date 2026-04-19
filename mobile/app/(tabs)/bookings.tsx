@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Platform,
 } from 'react-native';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { useAuth } from '@/src/hooks/useAuth';
 import { tableService } from '@/src/services/table.service';
 import {
@@ -281,11 +282,28 @@ function FloorMapView() {
 
 // ── Book a Table ─────────────────────────────────────────────────────────────
 
+const fmtDate = (d: Date) => d.toISOString().split('T')[0];
+const fmtTime = (d: Date) =>
+  `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+
 function BookTableView() {
   const [step, setStep] = useState<BookStep>('search');
-  const [date, setDate] = useState('');
-  const [startTime, setStartTime] = useState('');
-  const [endTime, setEndTime] = useState('');
+
+  const [bookingDateObj, setBookingDateObj] = useState(() => new Date());
+  const [startTimeObj, setStartTimeObj] = useState(() => {
+    const d = new Date(); d.setHours(18, 0, 0, 0); return d;
+  });
+  const [endTimeObj, setEndTimeObj] = useState(() => {
+    const d = new Date(); d.setHours(20, 0, 0, 0); return d;
+  });
+  const [showDatePicker, setShowDatePicker] = useState(false);
+  const [showStartPicker, setShowStartPicker] = useState(false);
+  const [showEndPicker, setShowEndPicker] = useState(false);
+
+  const date = fmtDate(bookingDateObj);
+  const startTime = fmtTime(startTimeObj);
+  const endTime = fmtTime(endTimeObj);
+
   const [partySize, setPartySize] = useState(2);
   const [floor, setFloor] = useState<TableFloor | 'ALL'>('ALL');
   const [tables, setTables] = useState<TableItem[]>([]);
@@ -296,13 +314,7 @@ function BookTableView() {
   const [isBooking, setIsBooking] = useState(false);
   const [createdId, setCreatedId] = useState<number | null>(null);
 
-  const today = new Date().toISOString().split('T')[0];
-
   const handleSearch = async () => {
-    if (!date || !startTime || !endTime) {
-      Alert.alert('Missing Info', 'Please fill in date, start time, and end time.');
-      return;
-    }
     if (startTime >= endTime) {
       Alert.alert('Invalid Time', 'Start time must be before end time.');
       return;
@@ -341,7 +353,7 @@ function BookTableView() {
       setCreatedId(booking.id);
       setStep('success');
     } catch (err: any) {
-      const msg = err?.response?.data?.message || err?.message || 'Booking failed. Please try again.';
+      const msg = err?.message || 'Booking failed. Please try again.';
       Alert.alert('Booking Failed', msg);
     } finally {
       setIsBooking(false);
@@ -549,37 +561,103 @@ function BookTableView() {
       <View className="bg-white rounded-2xl p-4 mb-4 gap-4">
         {/* Date */}
         <View>
-          <Text className="text-sm font-medium text-gray-700 mb-1.5">📅 Date (YYYY-MM-DD)</Text>
-          <TextInput
-            value={date}
-            onChangeText={setDate}
-            placeholder={today}
-            className="border border-gray-200 rounded-xl px-4 py-3 text-gray-800"
-            keyboardType="numeric"
-          />
+          <Text className="text-sm font-medium text-gray-700 mb-1.5">📅 Date</Text>
+          <TouchableOpacity
+            onPress={() => setShowDatePicker(true)}
+            className="border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
+          >
+            <Text className="text-gray-800">{date}</Text>
+            <Text className="text-gray-400">📅</Text>
+          </TouchableOpacity>
+          {showDatePicker && (
+            <View>
+              <DateTimePicker
+                value={bookingDateObj}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                minimumDate={new Date()}
+                onChange={(_, d) => {
+                  if (Platform.OS === 'android') setShowDatePicker(false);
+                  if (d) setBookingDateObj(d);
+                }}
+              />
+              {Platform.OS === 'ios' && (
+                <TouchableOpacity
+                  onPress={() => setShowDatePicker(false)}
+                  className="items-end px-2 pb-1"
+                >
+                  <Text className="text-red-600 font-semibold">Done</Text>
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
         </View>
 
         {/* Time */}
         <View className="flex-row gap-3">
           <View className="flex-1">
-            <Text className="text-sm font-medium text-gray-700 mb-1.5">🕐 From (HH:MM)</Text>
-            <TextInput
-              value={startTime}
-              onChangeText={setStartTime}
-              placeholder="18:00"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-gray-800"
-              keyboardType="numeric"
-            />
+            <Text className="text-sm font-medium text-gray-700 mb-1.5">🕐 From</Text>
+            <TouchableOpacity
+              onPress={() => setShowStartPicker(true)}
+              className="border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
+            >
+              <Text className="text-gray-800">{startTime}</Text>
+              <Text className="text-gray-400">🕐</Text>
+            </TouchableOpacity>
+            {showStartPicker && (
+              <View>
+                <DateTimePicker
+                  value={startTimeObj}
+                  mode="time"
+                  is24Hour
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_, d) => {
+                    if (Platform.OS === 'android') setShowStartPicker(false);
+                    if (d) setStartTimeObj(d);
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    onPress={() => setShowStartPicker(false)}
+                    className="items-end px-2 pb-1"
+                  >
+                    <Text className="text-red-600 font-semibold">Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
           <View className="flex-1">
-            <Text className="text-sm font-medium text-gray-700 mb-1.5">🕑 To (HH:MM)</Text>
-            <TextInput
-              value={endTime}
-              onChangeText={setEndTime}
-              placeholder="20:00"
-              className="border border-gray-200 rounded-xl px-4 py-3 text-gray-800"
-              keyboardType="numeric"
-            />
+            <Text className="text-sm font-medium text-gray-700 mb-1.5">🕑 To</Text>
+            <TouchableOpacity
+              onPress={() => setShowEndPicker(true)}
+              className="border border-gray-200 rounded-xl px-4 py-3 flex-row items-center justify-between"
+            >
+              <Text className="text-gray-800">{endTime}</Text>
+              <Text className="text-gray-400">🕑</Text>
+            </TouchableOpacity>
+            {showEndPicker && (
+              <View>
+                <DateTimePicker
+                  value={endTimeObj}
+                  mode="time"
+                  is24Hour
+                  display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                  onChange={(_, d) => {
+                    if (Platform.OS === 'android') setShowEndPicker(false);
+                    if (d) setEndTimeObj(d);
+                  }}
+                />
+                {Platform.OS === 'ios' && (
+                  <TouchableOpacity
+                    onPress={() => setShowEndPicker(false)}
+                    className="items-end px-2 pb-1"
+                  >
+                    <Text className="text-red-600 font-semibold">Done</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+            )}
           </View>
         </View>
 
@@ -743,7 +821,7 @@ function MyBookingsView() {
               await tableService.cancelBooking(booking.id);
               load(currentPage);
             } catch (err: any) {
-              Alert.alert('Error', err?.response?.data?.message || 'Failed to cancel booking.');
+              Alert.alert('Error', err?.message || 'Failed to cancel booking.');
             } finally {
               setCancellingId(null);
             }

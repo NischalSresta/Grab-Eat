@@ -1,5 +1,6 @@
 import React, { createContext, useState, useEffect, ReactNode } from 'react';
 import { authService } from '@/src/services/auth.service';
+import { apiService } from '@/src/services/api.service';
 import { User, LoginRequest, RegisterRequest } from '@/src/types';
 
 interface AuthContextType {
@@ -11,6 +12,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   verifyEmail: (email: string, code: string) => Promise<void>;
   resendVerification: (email: string) => Promise<void>;
+  refreshUser: () => Promise<void>;
 } 
 
 export const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -26,6 +28,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   useEffect(() => {
     checkAuthStatus();
+  }, []);
+
+  useEffect(() => {
+    apiService.setOnUnauthorizedCallback(() => {
+      setUser(null);
+      setIsAuthenticated(false);
+    });
   }, []);
 
   const checkAuthStatus = async () => {
@@ -87,6 +96,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
+  const refreshUser = async () => {
+    const currentUser = await authService.getCurrentUser();
+    setUser(currentUser);
+  };
+
   const value: AuthContextType = {
     user,
     isLoading,
@@ -96,6 +110,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     logout,
     verifyEmail,
     resendVerification,
+    refreshUser,
   };
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

@@ -108,7 +108,7 @@ export default function OrderFromTableScreen() {
         [{ text: 'OK', onPress: () => router.replace('/(tabs)/orders') }]
       );
     } catch (e: any) {
-      Alert.alert('Failed', e?.response?.data?.message || 'Could not place order. Please try again.');
+      Alert.alert('Failed', e?.message || 'Could not place order. Please try again.');
     } finally {
       setPlacing(false);
     }
