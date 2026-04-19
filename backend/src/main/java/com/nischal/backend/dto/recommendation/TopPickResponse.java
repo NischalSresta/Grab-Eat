@@ -13,7 +13,6 @@ public class TopPickResponse {
     private BigDecimal price;
     private String imageUrl;
     private String categoryName;
-    private String categoryType; // "FOOD" or "BEVERAGE"
     private Integer rank;
     private Integer totalOrdered;
     private Double score;

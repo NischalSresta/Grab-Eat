@@ -69,7 +69,7 @@ function App() {
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/profile" element={<ProfilePage />} />
             <Route path="/menu" element={<MenuPage />} />
-            <Route path="/tables" element={<BookTablePage />} />
+            <Route path="/tables" element={<TableBookingPage />} />
             <Route path="/tables/floor-plan" element={<TableFloorPlanPage />} />
             <Route path="/tables/book" element={<TableBookingPage />} />
             <Route path="/my-bookings" element={<MyBookingsPage />} />

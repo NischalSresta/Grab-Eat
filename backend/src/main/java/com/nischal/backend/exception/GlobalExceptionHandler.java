@@ -1,6 +1,7 @@
 package com.nischal.backend.exception;
 
 import jakarta.servlet.http.HttpServletRequest;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.AccessDeniedException;
@@ -15,142 +16,80 @@ import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.Map;
 
+@Slf4j
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
+    private Map<String, Object> errorBody(HttpStatus status, String message, HttpServletRequest request) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("timestamp", LocalDateTime.now().toString());
+        body.put("status", status.value());
+        body.put("error", status.getReasonPhrase());
+        body.put("message", message != null ? message : "An error occurred");
+        body.put("path", request.getRequestURI());
+        return body;
+    }
+
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleResourceNotFoundException(
-            ResourceNotFoundException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.NOT_FOUND.value(),
-                        "error", HttpStatus.NOT_FOUND.getReasonPhrase(),
-                        "message", ex.getMessage(),
-                        "path", request.getRequestURI()
-                )
-        );
+            ResourceNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                .body(errorBody(HttpStatus.NOT_FOUND, ex.getMessage(), request));
     }
 
     @ExceptionHandler(BadRequestException.class)
     public ResponseEntity<Map<String, Object>> handleBadRequestException(
-            BadRequestException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.BAD_REQUEST.value(),
-                        "error", HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                        "message", ex.getMessage(),
-                        "path", request.getRequestURI()
-                )
-        );
+            BadRequestException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(errorBody(HttpStatus.BAD_REQUEST, ex.getMessage(), request));
     }
 
     @ExceptionHandler(UnauthorizedException.class)
     public ResponseEntity<Map<String, Object>> handleUnauthorizedException(
-            UnauthorizedException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.UNAUTHORIZED.value(),
-                        "error", HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                        "message", ex.getMessage(),
-                        "path", request.getRequestURI()
-                )
-        );
+            UnauthorizedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(errorBody(HttpStatus.UNAUTHORIZED, ex.getMessage(), request));
     }
 
     @ExceptionHandler(BadCredentialsException.class)
     public ResponseEntity<Map<String, Object>> handleBadCredentialsException(
-            BadCredentialsException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.UNAUTHORIZED.value(),
-                        "error", HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                        "message", "Invalid email or password",
-                        "path", request.getRequestURI()
-                )
-        );
+            BadCredentialsException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(errorBody(HttpStatus.UNAUTHORIZED, "Invalid email or password", request));
     }
 
     @ExceptionHandler(UsernameNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleUsernameNotFoundException(
-            UsernameNotFoundException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.UNAUTHORIZED.value(),
-                        "error", HttpStatus.UNAUTHORIZED.getReasonPhrase(),
-                        "message", "Invalid credentials",
-                        "path", request.getRequestURI()
-                )
-        );
+            UsernameNotFoundException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(errorBody(HttpStatus.UNAUTHORIZED, "Invalid credentials", request));
     }
 
     @ExceptionHandler(MethodArgumentNotValidException.class)
     public ResponseEntity<Map<String, Object>> handleValidationException(
-            MethodArgumentNotValidException ex,
-            HttpServletRequest request
-    ) {
+            MethodArgumentNotValidException ex, HttpServletRequest request) {
         Map<String, String> validationErrors = new HashMap<>();
         ex.getBindingResult().getAllErrors().forEach(error -> {
             String fieldName = ((FieldError) error).getField();
-            String errorMessage = error.getDefaultMessage();
-            validationErrors.put(fieldName, errorMessage);
+            validationErrors.put(fieldName, error.getDefaultMessage());
         });
-
-        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.BAD_REQUEST.value(),
-                        "error", HttpStatus.BAD_REQUEST.getReasonPhrase(),
-                        "message", "Validation failed",
-                        "path", request.getRequestURI(),
-                        "validationErrors", validationErrors
-                )
-        );
+        Map<String, Object> body = errorBody(HttpStatus.BAD_REQUEST, "Validation failed", request);
+        body.put("validationErrors", validationErrors);
+        return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body);
     }
 
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<Map<String, Object>> handleAccessDeniedException(
-            AccessDeniedException ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.FORBIDDEN.value(),
-                        "error", HttpStatus.FORBIDDEN.getReasonPhrase(),
-                        "message", "You don't have permission to access this resource",
-                        "path", request.getRequestURI()
-                )
-        );
+            AccessDeniedException ex, HttpServletRequest request) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                .body(errorBody(HttpStatus.FORBIDDEN, "You don't have permission to access this resource", request));
     }
 
     @ExceptionHandler(Exception.class)
     public ResponseEntity<Map<String, Object>> handleGenericException(
-            Exception ex,
-            HttpServletRequest request
-    ) {
-        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
-                Map.of(
-                        "timestamp", LocalDateTime.now(),
-                        "status", HttpStatus.INTERNAL_SERVER_ERROR.value(),
-                        "error", HttpStatus.INTERNAL_SERVER_ERROR.getReasonPhrase(),
-                        "message", "An unexpected error occurred",
-                        "path", request.getRequestURI()
-                )
-        );
+            Exception ex, HttpServletRequest request) {
+        log.error("Unexpected error on {}: {}", request.getRequestURI(), ex.getMessage(), ex);
+        return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(errorBody(HttpStatus.INTERNAL_SERVER_ERROR, ex.getMessage(), request));
     }
 }

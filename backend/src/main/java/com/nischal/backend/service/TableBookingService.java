@@ -1,29 +1,32 @@
 package com.nischal.backend.service;
 
-import com.nischal.backend.entity.BookingStatus;
-import com.nischal.backend.entity.TableBooking;
+import com.nischal.backend.dto.table.BookingResponse;
+import com.nischal.backend.dto.table.CreateBookingRequest;
+import com.nischal.backend.dto.user.PageResponse;
 
-import java.time.LocalDate;
-import java.time.LocalTime;
+import org.springframework.data.domain.Pageable;
 import java.util.List;
 
 public interface TableBookingService {
 
-    TableBooking createBooking(Long tableId, Long userId, String customerName, String customerPhone,
-                               String customerEmail, LocalDate bookingDate, LocalTime startTime,
-                               LocalTime endTime, int guestCount, String specialRequests);
+    BookingResponse createBooking(Long userId, CreateBookingRequest request);
 
-    TableBooking getBookingById(Long id);
+    BookingResponse getBookingById(Long bookingId, Long requestingUserId);
 
-    List<TableBooking> getBookingsByUser(Long userId);
+    PageResponse<BookingResponse> getUserBookings(Long userId, Pageable pageable);
 
-    List<TableBooking> getBookingsByDate(LocalDate date);
+    BookingResponse cancelBooking(Long bookingId, Long requestingUserId);
 
-    List<TableBooking> getAllBookings();
+    // Admin operations
+    PageResponse<BookingResponse> getAllBookings(Pageable pageable);
 
-    TableBooking updateBookingStatus(Long id, BookingStatus status);
+    List<BookingResponse> getBookingsByTable(Long tableId);
 
-    boolean isTableAvailable(Long tableId, LocalDate date, LocalTime startTime, LocalTime endTime);
+    List<BookingResponse> getActiveBookings();
 
-    void cancelBooking(Long id);
+    BookingResponse confirmBooking(Long bookingId);
+
+    BookingResponse completeBooking(Long bookingId);
+
+    BookingResponse adminCancelBooking(Long bookingId);
 }

@@ -1,38 +1,24 @@
 {
   "expo": {
-    "name": "GrabEat",
-    "slug": "grab-eat-mobile",
+    "name": "GrabEat Mobile",
+    "slug": "grabeat-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
-    "scheme": "grabeat",
-    "userInterfaceStyle": "automatic",
-    "splash": {
-      "resizeMode": "contain",
-      "backgroundColor": "#ffffff"
-    },
+    "scheme": "mobile",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": false,
     "ios": {
       "supportsTablet": true
     },
     "android": {
-      "adaptiveIcon": {
-        "backgroundColor": "#ffffff"
-      },
-      "permissions": [
-        "android.permission.CAMERA"
-      ]
+      "package": "com.grabeat.mobile"
+    },
+    "web": {
+      "output": "static",
+      "bundler": "metro"
     },
     "plugins": [
-      "expo-router",
-      [
-        "expo-camera",
-        {
-          "cameraPermission": "Allow GrabEat to access your camera to scan table QR codes."
-        }
-      ]
-    ],
-    "experiments": {
-      "typedRoutes": true
-    }
+      "expo-router"
+    ]
   }
 }

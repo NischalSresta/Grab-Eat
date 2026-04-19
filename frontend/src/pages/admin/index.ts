@@ -1,0 +1,11 @@
+export { default as AdminDashboard } from './AdminDashboard';
+export { default as StaffManagement } from './StaffManagement';
+export { default as Settings } from './Settings';
+export { default as TableManagementPage } from './TableManagementPage';
+export { default as MenuManagementPage } from './MenuManagementPage';
+export { default as InventoryManagementPage } from './InventoryManagementPage';
+export { default as LoyaltyManagementPage } from './LoyaltyManagementPage';
+export { default as BillingPage } from './BillingPage';
+export { default as AdminOrdersPage } from './AdminOrdersPage';
+export { default as AdminBookingsPage } from './AdminBookingsPage';
+export { default as TopPicksPage } from './TopPicksPage';
