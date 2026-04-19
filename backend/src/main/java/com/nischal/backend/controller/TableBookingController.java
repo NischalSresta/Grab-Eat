@@ -1,18 +1,21 @@
 package com.nischal.backend.controller;
 
-import com.nischal.backend.entity.BookingStatus;
-import com.nischal.backend.entity.TableBooking;
+import com.nischal.backend.dto.table.BookingResponse;
+import com.nischal.backend.dto.table.CreateBookingRequest;
+import com.nischal.backend.dto.user.PageResponse;
 import com.nischal.backend.service.TableBookingService;
+import java.util.List;
+import com.nischal.backend.service.userdetails.CustomUserDetails;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
-import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
-
-import java.time.LocalDate;
-import java.time.LocalTime;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/bookings")
@@ -21,74 +24,101 @@ public class TableBookingController {
 
     private final TableBookingService bookingService;
 
-    // Customer — create a booking
+    /**
+     * Customer creates a booking.
+     */
     @PostMapping
-    public ResponseEntity<TableBooking> createBooking(@RequestBody Map<String, Object> request) {
-        Long tableId = Long.valueOf(request.get("tableId").toString());
-        Long userId = request.get("userId") != null ? Long.valueOf(request.get("userId").toString()) : null;
-        String customerName = (String) request.get("customerName");
-        String customerPhone = (String) request.get("customerPhone");
-        String customerEmail = (String) request.get("customerEmail");
-        LocalDate bookingDate = LocalDate.parse((String) request.get("bookingDate"));
-        LocalTime startTime = LocalTime.parse((String) request.get("startTime"));
-        LocalTime endTime = LocalTime.parse((String) request.get("endTime"));
-        int guestCount = Integer.parseInt(request.get("guestCount").toString());
-        String specialRequests = (String) request.get("specialRequests");
-
-        return ResponseEntity.ok(bookingService.createBooking(
-                tableId, userId, customerName, customerPhone, customerEmail,
-                bookingDate, startTime, endTime, guestCount, specialRequests));
-    }
-
-    // Customer — get own bookings
-    @GetMapping("/user/{userId}")
-    public ResponseEntity<List<TableBooking>> getBookingsByUser(@PathVariable Long userId) {
-        return ResponseEntity.ok(bookingService.getBookingsByUser(userId));
-    }
-
-    // Customer — cancel a booking
-    @PatchMapping("/{id}/cancel")
-    public ResponseEntity<Map<String, String>> cancelBooking(@PathVariable Long id) {
-        bookingService.cancelBooking(id);
-        return ResponseEntity.ok(Map.of("message", "Booking cancelled successfully"));
-    }
-
-    // Public — check availability
-    @GetMapping("/availability")
-    public ResponseEntity<Map<String, Boolean>> checkAvailability(
-            @RequestParam Long tableId,
-            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
-            @RequestParam String startTime,
-            @RequestParam String endTime
+    public ResponseEntity<BookingResponse> createBooking(
+            Authentication authentication,
+            @Valid @RequestBody CreateBookingRequest request
     ) {
-        boolean available = bookingService.isTableAvailable(
-                tableId, date, LocalTime.parse(startTime), LocalTime.parse(endTime));
-        return ResponseEntity.ok(Map.of("available", available));
+        Long userId = getUserId(authentication);
+        BookingResponse response = bookingService.createBooking(userId, request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    // Admin — get all bookings
+    /**
+     * Customer views a specific booking (must be theirs).
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<BookingResponse> getBookingById(
+            Authentication authentication,
+            @PathVariable Long id
+    ) {
+        Long userId = getUserId(authentication);
+        return ResponseEntity.ok(bookingService.getBookingById(id, userId));
+    }
+
+    /**
+     * Customer views their own bookings (paginated).
+     */
+    @GetMapping("/my")
+    public ResponseEntity<PageResponse<BookingResponse>> getMyBookings(
+            Authentication authentication,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
+    ) {
+        Long userId = getUserId(authentication);
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(bookingService.getUserBookings(userId, pageable));
+    }
+
+    /**
+     * Customer cancels their own booking.
+     */
+    @PatchMapping("/{id}/cancel")
+    public ResponseEntity<BookingResponse> cancelBooking(
+            Authentication authentication,
+            @PathVariable Long id
+    ) {
+        Long userId = getUserId(authentication);
+        return ResponseEntity.ok(bookingService.cancelBooking(id, userId));
+    }
+
+    // Admin operations
+
     @GetMapping
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<List<TableBooking>> getAllBookings() {
-        return ResponseEntity.ok(bookingService.getAllBookings());
-    }
-
-    // Admin — get bookings by date
-    @GetMapping("/date/{date}")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<List<TableBooking>> getBookingsByDate(
-            @PathVariable @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date) {
-        return ResponseEntity.ok(bookingService.getBookingsByDate(date));
-    }
-
-    // Admin — update booking status
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<TableBooking> updateBookingStatus(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> request
+    public ResponseEntity<PageResponse<BookingResponse>> getAllBookings(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size
     ) {
-        BookingStatus status = BookingStatus.valueOf(request.get("status"));
-        return ResponseEntity.ok(bookingService.updateBookingStatus(id, status));
+        Pageable pageable = PageRequest.of(page, size, Sort.by(Sort.Direction.DESC, "createdAt"));
+        return ResponseEntity.ok(bookingService.getAllBookings(pageable));
+    }
+
+    @GetMapping("/active")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<List<BookingResponse>> getActiveBookings() {
+        return ResponseEntity.ok(bookingService.getActiveBookings());
+    }
+
+    @GetMapping("/table/{tableId}")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<List<BookingResponse>> getBookingsByTable(@PathVariable Long tableId) {
+        return ResponseEntity.ok(bookingService.getBookingsByTable(tableId));
+    }
+
+    @PatchMapping("/{id}/confirm")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<BookingResponse> confirmBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.confirmBooking(id));
+    }
+
+    @PatchMapping("/{id}/complete")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<BookingResponse> completeBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.completeBooking(id));
+    }
+
+    @PatchMapping("/{id}/admin-cancel")
+    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
+    public ResponseEntity<BookingResponse> adminCancelBooking(@PathVariable Long id) {
+        return ResponseEntity.ok(bookingService.adminCancelBooking(id));
+    }
+
+    private Long getUserId(Authentication authentication) {
+        CustomUserDetails userDetails = (CustomUserDetails) authentication.getPrincipal();
+        return userDetails.getUserId();
     }
 }

@@ -1,81 +1,128 @@
+import axios from 'axios';
+import Cookies from 'js-cookie';
 import { apiClient } from './api.service';
 import type {
-  RestaurantTable,
-  TableBooking,
+  TableItem,
+  BookingItem,
   CreateBookingRequest,
-  BookingStatus,
+  CreateTableRequest,
+  UpdateTableRequest,
+  AvailableTablesQuery,
   TableFloor,
-  TableStatus,
+  PageResponse,
 } from '../types/table.types';
 
+export interface TableBookingDetails {
+  bookingId: number;
+  customerName: string;
+  customerEmail?: string;
+  customerPhone?: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  partySize: number;
+  status: 'PENDING' | 'CONFIRMED' | 'CANCELLED' | 'COMPLETED';
+  specialRequests?: string;
+}
+
 export const tableService = {
-  // Tables
-  async getAllTables(): Promise<RestaurantTable[]> {
-    return apiClient.get<RestaurantTable[]>('/tables');
+  async getAllTables(): Promise<TableItem[]> {
+    return apiClient.get<TableItem[]>('/tables');
   },
 
-  async getTableById(id: number): Promise<RestaurantTable> {
-    return apiClient.get<RestaurantTable>(`/tables/${id}`);
+  async getTablesByFloor(floor: TableFloor): Promise<TableItem[]> {
+    return apiClient.get<TableItem[]>(`/tables/floor/${floor}`);
   },
 
-  async getTablesByFloor(floor: TableFloor): Promise<RestaurantTable[]> {
-    return apiClient.get<RestaurantTable[]>(`/tables/floor/${floor}`);
+  async getAvailableTables(query: AvailableTablesQuery): Promise<TableItem[]> {
+    const params = new URLSearchParams({
+      date: query.date,
+      startTime: query.startTime,
+      endTime: query.endTime,
+      partySize: query.partySize.toString(),
+    });
+    const url = query.floor
+      ? `/tables/available/floor/${query.floor}?${params}`
+      : `/tables/available?${params}`;
+    return apiClient.get<TableItem[]>(url);
   },
 
-  async getTableByQrToken(token: string): Promise<RestaurantTable> {
-    return apiClient.get<RestaurantTable>(`/tables/qr/${token}`);
+  async getTableById(id: number): Promise<TableItem> {
+    return apiClient.get<TableItem>(`/tables/${id}`);
   },
 
-  async createTable(tableNumber: string, capacity: number, floor: TableFloor): Promise<RestaurantTable> {
-    return apiClient.post<RestaurantTable>('/tables', { tableNumber, capacity, floor });
+  async getMyBookings(page = 0, size = 10): Promise<PageResponse<BookingItem>> {
+    return apiClient.get<PageResponse<BookingItem>>(`/bookings/my?page=${page}&size=${size}`);
   },
 
-  async updateTable(id: number, tableNumber: string, capacity: number, floor: TableFloor): Promise<RestaurantTable> {
-    return apiClient.put<RestaurantTable>(`/tables/${id}`, { tableNumber, capacity, floor });
+  async getBookingById(id: number): Promise<BookingItem> {
+    return apiClient.get<BookingItem>(`/bookings/${id}`);
   },
 
-  async updateTableStatus(id: number, status: TableStatus): Promise<RestaurantTable> {
-    return apiClient.patch<RestaurantTable>(`/tables/${id}/status`, { status });
+  async createBooking(data: CreateBookingRequest): Promise<BookingItem> {
+    return apiClient.post<BookingItem>('/bookings', data);
   },
 
-  async deleteTable(id: number): Promise<void> {
+  async cancelBooking(id: number): Promise<BookingItem> {
+    return apiClient.patch<BookingItem>(`/bookings/${id}/cancel`, {});
+  },
+
+  // Admin / Owner operations
+
+  async adminCreateTable(data: CreateTableRequest): Promise<TableItem> {
+    return apiClient.post<TableItem>('/tables', data);
+  },
+
+  async adminUpdateTable(id: number, data: UpdateTableRequest): Promise<TableItem> {
+    return apiClient.put<TableItem>(`/tables/${id}`, data);
+  },
+
+  async adminDeleteTable(id: number): Promise<void> {
     return apiClient.delete<void>(`/tables/${id}`);
   },
 
-  async regenerateQr(id: number): Promise<{ qrToken: string }> {
-    return apiClient.post<{ qrToken: string }>(`/tables/${id}/regenerate-qr`);
+  async adminGetAllBookings(page = 0, size = 20): Promise<PageResponse<BookingItem>> {
+    return apiClient.get<PageResponse<BookingItem>>(`/bookings?page=${page}&size=${size}`);
   },
 
-  // Bookings
-  async createBooking(data: CreateBookingRequest): Promise<TableBooking> {
-    return apiClient.post<TableBooking>('/bookings', data);
+  async adminGetBookingsByTable(tableId: number): Promise<BookingItem[]> {
+    return apiClient.get<BookingItem[]>(`/bookings/table/${tableId}`);
   },
 
-  async getMyBookings(userId: number): Promise<TableBooking[]> {
-    return apiClient.get<TableBooking[]>(`/bookings/user/${userId}`);
+  async adminGetActiveBookings(): Promise<BookingItem[]> {
+    return apiClient.get<BookingItem[]>('/bookings/active');
   },
 
-  async cancelBooking(id: number): Promise<void> {
-    return apiClient.patch<void>(`/bookings/${id}/cancel`);
+  async adminConfirmBooking(id: number): Promise<BookingItem> {
+    return apiClient.patch<BookingItem>(`/bookings/${id}/confirm`, {});
   },
 
-  async checkAvailability(tableId: number, date: string, startTime: string, endTime: string): Promise<boolean> {
-    const res = await apiClient.get<{ available: boolean }>(
-      `/bookings/availability?tableId=${tableId}&date=${date}&startTime=${startTime}&endTime=${endTime}`
-    );
-    return res.available;
+  async adminCompleteBooking(id: number): Promise<BookingItem> {
+    return apiClient.patch<BookingItem>(`/bookings/${id}/complete`, {});
   },
 
-  // Admin
-  async getAllBookings(): Promise<TableBooking[]> {
-    return apiClient.get<TableBooking[]>('/bookings');
+  async adminCancelBooking(id: number): Promise<BookingItem> {
+    return apiClient.patch<BookingItem>(`/bookings/${id}/admin-cancel`, {});
   },
 
-  async getBookingsByDate(date: string): Promise<TableBooking[]> {
-    return apiClient.get<TableBooking[]>(`/bookings/date/${date}`);
+  async getTableQrCodeBlobUrl(tableId: number): Promise<string> {
+    const token = Cookies.get('accessToken') ?? '';
+    const response = await axios.get(`http://localhost:8081/api/v1/qr/table/${tableId}`, {
+      responseType: 'blob',
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    return URL.createObjectURL(response.data);
   },
 
-  async updateBookingStatus(id: number, status: BookingStatus): Promise<TableBooking> {
-    return apiClient.patch<TableBooking>(`/bookings/${id}/status`, { status });
+  async getTableBookingDetails(tableId: number): Promise<BookingItem | null> {
+    try {
+      const bookings = await apiClient.get<BookingItem[]>(`/bookings/table/${tableId}`);
+      const active = bookings.find(
+        (b: BookingItem) => b.status === 'PENDING' || b.status === 'CONFIRMED'
+      );
+      return active ?? null;
+    } catch {
+      return null;
+    }
   },
 };

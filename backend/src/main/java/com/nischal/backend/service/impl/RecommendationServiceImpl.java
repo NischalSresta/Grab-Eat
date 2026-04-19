@@ -19,6 +19,10 @@ import java.util.stream.Collectors;
 @RequiredArgsConstructor
 public class RecommendationServiceImpl implements RecommendationService {
 
+    private static final int TOP_N = 5;
+    /** Weights for weeks: index 0 = most recent week, index 3 = oldest */
+    private static final int[] WEEK_WEIGHTS = {4, 3, 2, 1};
+
     private final TopPickRepository topPickRepository;
     private final OrderRepository orderRepository;
     private final OrderItemRepository orderItemRepository;
@@ -29,7 +33,7 @@ public class RecommendationServiceImpl implements RecommendationService {
         LocalDate weekStart = currentWeekMonday();
         List<TopPick> picks = topPickRepository.findByWeekStartOrderByPickRankAsc(weekStart);
         if (picks.isEmpty()) {
-            // Scheduler hasn't run yet — compute on-the-fly and return without persisting
+            // Fallback: compute on-the-fly if scheduler hasn't run yet
             return computeTopPicksData(weekStart).stream()
                     .map(this::toResponse)
                     .collect(Collectors.toList());
@@ -47,73 +51,61 @@ public class RecommendationServiceImpl implements RecommendationService {
         }
         List<TopPick> picks = computeTopPicksData(weekStart);
         topPickRepository.saveAll(picks);
-        log.info("Saved {} top picks for week {} (1 food + 1 beverage)", picks.size(), weekStart);
+        log.info("Saved {} top picks for week {}", picks.size(), weekStart);
     }
 
-    // ── core logic ────────────────────────────────────────────────────────────
+    // Helpers
 
-    /**
-     * Looks at the past 7 days of SERVED orders.
-     * Returns exactly 2 picks: rank 1 = top FOOD item, rank 2 = top BEVERAGE item.
-     * If no orders exist for a type, that slot is omitted.
-     */
     private List<TopPick> computeTopPicksData(LocalDate weekStart) {
-        // Window: previous Monday 00:00 → this Monday 00:00
-        LocalDateTime windowEnd   = weekStart.atStartOfDay();
-        LocalDateTime windowStart = weekStart.minusWeeks(1).atStartOfDay();
+        LocalDateTime windowEnd = weekStart.atStartOfDay();
+        LocalDateTime windowStart = weekStart.minusWeeks(4).atStartOfDay();
 
+        // Fetch all SERVED orders in the 4-week window
         List<Order> orders = orderRepository.findByStatusAndCreatedAtBetween(
                 OrderStatus.SERVED, windowStart, windowEnd);
 
-        // Separate tallies for food and beverage
-        Map<Long, Integer> foodCounts = new HashMap<>();
-        Map<Long, Integer> bevCounts  = new HashMap<>();
-        Map<Long, MenuItem> itemMap   = new HashMap<>();
+        // Map: menuItemId -> weighted score
+        Map<Long, Double> scoreMap = new HashMap<>();
+        Map<Long, Integer> totalMap = new HashMap<>();
+        Map<Long, MenuItem> itemMap = new HashMap<>();
 
         for (Order order : orders) {
+            // Determine how many weeks ago this order was (0 = most recent week)
+            long weeksAgo = Duration.between(order.getCreatedAt(), windowEnd).toDays() / 7;
+            int weight = (weeksAgo < WEEK_WEIGHTS.length) ? WEEK_WEIGHTS[(int) weeksAgo] : 1;
+
             List<OrderItem> items = orderItemRepository.findByOrderId(order.getId());
-            for (OrderItem oi : items) {
-                MenuItem mi = oi.getMenuItem();
-                if (mi == null || Boolean.FALSE.equals(mi.getIsAvailable())) continue;
-
+            for (OrderItem item : items) {
+                MenuItem mi = item.getMenuItem();
+                if (mi == null || !mi.getIsAvailable()) continue;
                 Long miId = mi.getId();
-                int qty   = oi.getQuantity() != null ? oi.getQuantity() : 1;
-
-                CategoryType type = (mi.getCategory() != null) ? mi.getCategory().getType() : null;
-                if (type == CategoryType.BEVERAGE) {
-                    bevCounts.merge(miId, qty, Integer::sum);
-                } else {
-                    foodCounts.merge(miId, qty, Integer::sum);
-                }
+                int qty = item.getQuantity() != null ? item.getQuantity() : 1;
+                scoreMap.merge(miId, (double) qty * weight, Double::sum);
+                totalMap.merge(miId, qty, Integer::sum);
                 itemMap.putIfAbsent(miId, mi);
             }
         }
 
+        // Sort by score descending, take top N
+        List<Map.Entry<Long, Double>> sorted = new ArrayList<>(scoreMap.entrySet());
+        sorted.sort(Map.Entry.<Long, Double>comparingByValue().reversed());
+
         List<TopPick> picks = new ArrayList<>();
-
-        // Top food dish (rank 1)
-        topEntry(foodCounts).ifPresent(e -> picks.add(TopPick.builder()
-                .menuItem(itemMap.get(e.getKey()))
-                .weekStart(weekStart)
-                .pickRank(1)
-                .totalOrdered(e.getValue())
-                .score(e.getValue().doubleValue())
-                .build()));
-
-        // Top beverage (rank 2)
-        topEntry(bevCounts).ifPresent(e -> picks.add(TopPick.builder()
-                .menuItem(itemMap.get(e.getKey()))
-                .weekStart(weekStart)
-                .pickRank(2)
-                .totalOrdered(e.getValue())
-                .score(e.getValue().doubleValue())
-                .build()));
-
+        int rank = 1;
+        for (Map.Entry<Long, Double> entry : sorted) {
+            if (rank > TOP_N) break;
+            Long miId = entry.getKey();
+            TopPick pick = TopPick.builder()
+                    .menuItem(itemMap.get(miId))
+                    .weekStart(weekStart)
+                    .pickRank(rank)
+                    .totalOrdered(totalMap.getOrDefault(miId, 0))
+                    .score(entry.getValue())
+                    .build();
+            picks.add(pick);
+            rank++;
+        }
         return picks;
-    }
-
-    private Optional<Map.Entry<Long, Integer>> topEntry(Map<Long, Integer> map) {
-        return map.entrySet().stream().max(Map.Entry.comparingByValue());
     }
 
     private LocalDate currentWeekMonday() {
@@ -122,8 +114,6 @@ public class RecommendationServiceImpl implements RecommendationService {
 
     private TopPickResponse toResponse(TopPick p) {
         MenuItem mi = p.getMenuItem();
-        Category cat = mi.getCategory();
-        CategoryType type = cat != null ? cat.getType() : null;
         return TopPickResponse.builder()
                 .id(p.getId())
                 .menuItemId(mi.getId())
@@ -131,12 +121,12 @@ public class RecommendationServiceImpl implements RecommendationService {
                 .menuItemDescription(mi.getDescription())
                 .price(mi.getPrice())
                 .imageUrl(mi.getImageUrl())
-                .categoryName(cat != null ? cat.getName() : null)
-                .categoryType(type != null ? type.name() : "FOOD")
+                .categoryName(mi.getCategory() != null ? mi.getCategory().getName() : null)
                 .rank(p.getPickRank())
                 .totalOrdered(p.getTotalOrdered())
                 .score(p.getScore())
                 .weekStart(p.getWeekStart())
                 .build();
     }
+
 }

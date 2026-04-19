@@ -1,28 +1,29 @@
 package com.nischal.backend.service;
 
-import com.nischal.backend.entity.RestaurantTable;
+import com.nischal.backend.dto.table.CreateTableRequest;
+import com.nischal.backend.dto.table.TableResponse;
+import com.nischal.backend.dto.table.UpdateTableRequest;
 import com.nischal.backend.entity.TableFloor;
-import com.nischal.backend.entity.TableStatus;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
 
 public interface TableService {
 
-    RestaurantTable createTable(String tableNumber, int capacity, TableFloor floor);
+    List<TableResponse> getAllTables();
 
-    RestaurantTable getTableById(Long id);
+    List<TableResponse> getTablesByFloor(TableFloor floor);
 
-    RestaurantTable getTableByQrToken(String qrToken);
+    List<TableResponse> getAvailableTables(LocalDate bookingDate, LocalTime startTime, LocalTime endTime, Integer partySize);
 
-    List<RestaurantTable> getAllTables();
+    List<TableResponse> getAvailableTablesByFloor(LocalDate bookingDate, LocalTime startTime, LocalTime endTime, Integer partySize, TableFloor floor);
 
-    List<RestaurantTable> getTablesByFloor(TableFloor floor);
+    TableResponse getTableById(Long id);
 
-    RestaurantTable updateTableStatus(Long id, TableStatus status);
+    TableResponse createTable(CreateTableRequest request);
 
-    RestaurantTable updateTable(Long id, String tableNumber, int capacity, TableFloor floor);
+    TableResponse updateTable(Long id, UpdateTableRequest request);
 
     void deleteTable(Long id);
-
-    String generateQrToken(Long tableId);
 }

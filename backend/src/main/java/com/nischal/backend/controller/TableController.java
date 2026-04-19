@@ -1,16 +1,21 @@
 package com.nischal.backend.controller;
 
-import com.nischal.backend.entity.RestaurantTable;
+import com.nischal.backend.dto.table.CreateTableRequest;
+import com.nischal.backend.dto.table.TableResponse;
+import com.nischal.backend.dto.table.UpdateTableRequest;
 import com.nischal.backend.entity.TableFloor;
-import com.nischal.backend.entity.TableStatus;
 import com.nischal.backend.service.TableService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import org.springframework.format.annotation.DateTimeFormat;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDate;
+import java.time.LocalTime;
 import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/v1/tables")
@@ -19,68 +24,79 @@ public class TableController {
 
     private final TableService tableService;
 
+    /**
+     * Get all active tables. Accessible by any authenticated user.
+     */
     @GetMapping
-    public ResponseEntity<List<RestaurantTable>> getAllTables() {
+    public ResponseEntity<List<TableResponse>> getAllTables() {
         return ResponseEntity.ok(tableService.getAllTables());
     }
 
-    @GetMapping("/{id}")
-    public ResponseEntity<RestaurantTable> getTableById(@PathVariable Long id) {
-        return ResponseEntity.ok(tableService.getTableById(id));
-    }
-
+    /**
+     * Get tables filtered by floor. Accessible by any authenticated user.
+     */
     @GetMapping("/floor/{floor}")
-    public ResponseEntity<List<RestaurantTable>> getTablesByFloor(@PathVariable TableFloor floor) {
+    public ResponseEntity<List<TableResponse>> getTablesByFloor(@PathVariable TableFloor floor) {
         return ResponseEntity.ok(tableService.getTablesByFloor(floor));
     }
 
-    @GetMapping("/qr/{token}")
-    public ResponseEntity<RestaurantTable> getTableByQrToken(@PathVariable String token) {
-        return ResponseEntity.ok(tableService.getTableByQrToken(token));
+    /**
+     * Get available tables for a specific date/time/party size.
+     * Accessible by any authenticated user (customers use this to search).
+     */
+    @GetMapping("/available")
+    public ResponseEntity<List<TableResponse>> getAvailableTables(
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime,
+            @RequestParam(defaultValue = "1") Integer partySize
+    ) {
+        return ResponseEntity.ok(tableService.getAvailableTables(date, startTime, endTime, partySize));
     }
+
+    /**
+     * Get available tables for a specific floor + date/time/party size.
+     */
+    @GetMapping("/available/floor/{floor}")
+    public ResponseEntity<List<TableResponse>> getAvailableTablesByFloor(
+            @PathVariable TableFloor floor,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate date,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime startTime,
+            @RequestParam @DateTimeFormat(iso = DateTimeFormat.ISO.TIME) LocalTime endTime,
+            @RequestParam(defaultValue = "1") Integer partySize
+    ) {
+        return ResponseEntity.ok(tableService.getAvailableTablesByFloor(date, startTime, endTime, partySize, floor));
+    }
+
+    /**
+     * Get a single table by ID.
+     */
+    @GetMapping("/{id}")
+    public ResponseEntity<TableResponse> getTableById(@PathVariable Long id) {
+        return ResponseEntity.ok(tableService.getTableById(id));
+    }
+
+    // Admin-only operations
 
     @PostMapping
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<RestaurantTable> createTable(@RequestBody Map<String, Object> request) {
-        String tableNumber = (String) request.get("tableNumber");
-        int capacity = (int) request.get("capacity");
-        TableFloor floor = TableFloor.valueOf((String) request.get("floor"));
-        return ResponseEntity.ok(tableService.createTable(tableNumber, capacity, floor));
+    public ResponseEntity<TableResponse> createTable(@Valid @RequestBody CreateTableRequest request) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(tableService.createTable(request));
     }
 
     @PutMapping("/{id}")
     @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<RestaurantTable> updateTable(
+    public ResponseEntity<TableResponse> updateTable(
             @PathVariable Long id,
-            @RequestBody Map<String, Object> request
+            @Valid @RequestBody UpdateTableRequest request
     ) {
-        String tableNumber = (String) request.get("tableNumber");
-        int capacity = (int) request.get("capacity");
-        TableFloor floor = TableFloor.valueOf((String) request.get("floor"));
-        return ResponseEntity.ok(tableService.updateTable(id, tableNumber, capacity, floor));
-    }
-
-    @PatchMapping("/{id}/status")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<RestaurantTable> updateTableStatus(
-            @PathVariable Long id,
-            @RequestBody Map<String, String> request
-    ) {
-        TableStatus status = TableStatus.valueOf(request.get("status"));
-        return ResponseEntity.ok(tableService.updateTableStatus(id, status));
-    }
-
-    @PostMapping("/{id}/regenerate-qr")
-    @PreAuthorize("hasAnyRole('OWNER', 'STAFF')")
-    public ResponseEntity<Map<String, String>> regenerateQr(@PathVariable Long id) {
-        String token = tableService.generateQrToken(id);
-        return ResponseEntity.ok(Map.of("qrToken", token));
+        return ResponseEntity.ok(tableService.updateTable(id, request));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('OWNER')")
-    public ResponseEntity<Map<String, String>> deleteTable(@PathVariable Long id) {
+    public ResponseEntity<Void> deleteTable(@PathVariable Long id) {
         tableService.deleteTable(id);
-        return ResponseEntity.ok(Map.of("message", "Table deleted successfully"));
+        return ResponseEntity.noContent().build();
     }
 }

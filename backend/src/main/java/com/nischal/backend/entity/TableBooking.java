@@ -9,8 +9,8 @@ import java.time.LocalTime;
 
 @Entity
 @Table(name = "table_bookings", indexes = {
-    @Index(name = "idx_booking_table", columnList = "table_id"),
     @Index(name = "idx_booking_user", columnList = "user_id"),
+    @Index(name = "idx_booking_table", columnList = "table_id"),
     @Index(name = "idx_booking_date", columnList = "booking_date"),
     @Index(name = "idx_booking_status", columnList = "status")
 })
@@ -26,21 +26,12 @@ public class TableBooking {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "table_id", nullable = false)
-    private RestaurantTable table;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "user_id")
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, length = 100)
-    private String customerName;
-
-    @Column(nullable = false, length = 20)
-    private String customerPhone;
-
-    @Column(length = 100)
-    private String customerEmail;
+    @ManyToOne(fetch = FetchType.LAZY, optional = false)
+    @JoinColumn(name = "table_id", nullable = false)
+    private RestaurantTable table;
 
     @Column(nullable = false)
     private LocalDate bookingDate;
@@ -52,7 +43,7 @@ public class TableBooking {
     private LocalTime endTime;
 
     @Column(nullable = false)
-    private Integer guestCount;
+    private Integer partySize;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false, length = 20)
